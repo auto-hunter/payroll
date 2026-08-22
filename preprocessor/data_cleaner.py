@@ -19,6 +19,7 @@ from __future__ import annotations
 import re
 
 import pandas as pd
+import numpy as np
 
 from config.config import (
     DATA_CLEANER_FILTER_ITEMS,
@@ -36,6 +37,10 @@ from config.config import (
     ACTUAL_START_COL,
     ACTUAL_END_COL,
     SHIFT_DATES,
+    TARGET_MONTH,
+    COMPANY_COL,
+
+    TAEIL_CABLE, TAEIL_MATERIAL
 )
 
 KOREAN_WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"]
@@ -109,6 +114,57 @@ def filter_rows(df: pd.DataFrame) -> pd.DataFrame:
     return working.loc[keep_mask].reset_index(drop=True)
 
 
+def filter_logs_after_target_month(
+    df: pd.DataFrame,
+    target_month: str = TARGET_MONTH,
+) -> pd.DataFrame:
+    """대상 월 이후에는 퇴근 로그만 남긴다.
+
+    대상 월 마지막 날까지의 로그는 출근 시각과 관계없이 모두 유지한다.
+    따라서 말일 야간 출근과 다음 달에 기록된 퇴근을
+    :func:`parse_commute_logs`가 하나의 근무로 연결할 수 있다.
+
+    다음 달 이후에 새로 기록된 출근 로그는 17시 이후 야간 출근을 포함해
+    모두 제거하고, 이전 근무를 마감할 수 있는 퇴근 로그만 유지한다.
+
+    Args:
+        df: ``발생일자``와 ``모드`` 컬럼을 포함한 원본 출퇴근 로그.
+        target_month: 급여 대상 월을 나타내는 ``YYYY-MM`` 문자열.
+
+    Returns:
+        원본 순서를 유지하면서 조건에 맞는 행만 남긴 DataFrame.
+
+    Raises:
+        KeyError: 필요한 컬럼이 없을 때.
+        ValueError: 대상 월 또는 발생일자를 날짜로 변환할 수 없을 때.
+    """
+    if df is None or df.empty:
+        return df.copy() if df is not None else pd.DataFrame()
+
+    required_columns = ("발생일자", "모드")
+    missing_columns = [
+        column for column in required_columns if column not in df.columns
+    ]
+    if missing_columns:
+        raise KeyError(f"필수 컬럼이 없습니다: {', '.join(missing_columns)}")
+
+    normalized_target_month = str(target_month).strip()
+    if not re.fullmatch(r"\d{4}-\d{2}", normalized_target_month):
+        raise ValueError("target_month는 YYYY-MM 형식이어야 합니다.")
+
+    target_period = pd.Period(normalized_target_month, freq="M")
+    working = df.copy()
+    event_dates = pd.to_datetime(working["발생일자"], errors="coerce")
+    if event_dates.isna().any():
+        raise ValueError("발생일자 컬럼에 날짜로 변환할 수 없는 값이 있습니다.")
+
+    after_target_month = event_dates.dt.to_period("M") > target_period
+    clock_out = working["모드"].map(_normalize_text).eq("퇴근")
+    keep_mask = ~after_target_month | clock_out
+
+    return working.loc[keep_mask].reset_index(drop=True)
+
+
 def parse_commute_logs(df: pd.DataFrame) -> pd.DataFrame:
     """
     캡스 조회 데이터를 가공해서 출근/퇴근 시간으로 변환한다.
@@ -136,7 +192,8 @@ def parse_commute_logs(df: pd.DataFrame) -> pd.DataFrame:
     if df is None or df.empty:
         return pd.DataFrame()
 
-    missing_columns = [col for col in INPUT_FILE_REQUIRED_COLUMNS if col not in df.columns]
+    required_columns = (*INPUT_FILE_REQUIRED_COLUMNS, COMPANY_COL)
+    missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:
         raise KeyError(f"필수 컬럼이 없습니다: {', '.join(missing_columns)}")
 
@@ -155,6 +212,7 @@ def parse_commute_logs(df: pd.DataFrame) -> pd.DataFrame:
 
             if row["모드"] == "출근":
                 user_name = row["이름"]
+                company = row[COMPANY_COL]
                 work_date = row["발생일자"]
                 # 출근시간에 string 대신 Timestamp 객체('일시')를 할당합니다.
                 clock_in_time = row["일시"]
@@ -186,6 +244,7 @@ def parse_commute_logs(df: pd.DataFrame) -> pd.DataFrame:
                     {
                         "사용자ID": user_id,
                         "이름": user_name,
+                        COMPANY_COL: company,
                         WORK_DATE_COL: work_date,
                         START_COL: clock_in_time,
                         END_COL: clock_out_time,
@@ -200,6 +259,7 @@ def parse_commute_logs(df: pd.DataFrame) -> pd.DataFrame:
                     {
                         "사용자ID": user_id,
                         "이름": row["이름"],
+                        COMPANY_COL: row[COMPANY_COL],
                         WORK_DATE_COL: row["발생일자"],
                         START_COL: pd.NaT,
                         END_COL: row["일시"],  # 여기도 Timestamp 객체 할당
@@ -392,12 +452,16 @@ def filter_before_target_month_start_week(df: pd.DataFrame, target_month) -> pd.
     return working.loc[mask].reset_index(drop=True)
 
 
-def fill_missing_dates(df: pd.DataFrame) -> pd.DataFrame:
+def fill_missing_dates(
+    df: pd.DataFrame,
+    target_month: str = TARGET_MONTH,
+) -> pd.DataFrame:
     """
-    전체 근무일자 범위에서 사용자별로 누락된 날짜 행을 채운다.
+    대상 월을 넘지 않는 범위에서 사용자별 누락 날짜 행을 채운다.
 
-    입력 데이터의 근무일자 최솟값부터 최댓값까지를 공통 범위로 사용하며,
-    각 (사용자ID, 이름) 그룹에 해당 범위의 모든 날짜가 있도록 행을 생성한다.
+    입력 데이터의 근무일자 최솟값부터 입력 최댓값과 대상 월 말일 중
+    이른 날짜까지를 공통 범위로 사용한다. 대상 월 이후에는 결측 행을
+    새로 만들지 않으며, 원본에 실제로 존재하는 행만 그대로 유지한다.
     생성된 결과의 휴일, 공휴일과 교대일은 config 설정을 기준으로 0 또는 1로 채운다.
     """
     if df is None or df.empty:
@@ -413,7 +477,14 @@ def fill_missing_dates(df: pd.DataFrame) -> pd.DataFrame:
     if work_dates.isna().any():
         raise ValueError(f"{WORK_DATE_COL} 컬럼에 날짜로 변환할 수 없는 값이 있습니다.")
 
-    full_dates = pd.date_range(start=work_dates.min(), end=work_dates.max(), freq="D")
+    normalized_target_month = str(target_month).strip()
+    if not re.fullmatch(r"\d{4}-\d{2}", normalized_target_month):
+        raise ValueError("target_month는 YYYY-MM 형식이어야 합니다.")
+
+    target_period = pd.Period(normalized_target_month, freq="M")
+    target_month_end = target_period.end_time.normalize()
+    fill_end = min(work_dates.max(), target_month_end)
+    full_dates = pd.date_range(start=work_dates.min(), end=fill_end, freq="D")
     calendar = pd.DataFrame(
         {
             WORK_DATE_COL: full_dates,
@@ -432,10 +503,48 @@ def fill_missing_dates(df: pd.DataFrame) -> pd.DataFrame:
     for _, person_df in groups:
         person_df = person_df.drop(columns=[WEEKDAY_COL], errors="ignore")
         filled = calendar.merge(person_df, on=WORK_DATE_COL, how="left")
+
+        # 대상 월 이후에는 실제 기록만 추가하고 중간의 빈 날짜는 생성하지 않는다.
+        actual_rows_after_target = person_df.loc[
+            person_df[WORK_DATE_COL] > target_month_end
+        ].copy()
+        if not actual_rows_after_target.empty:
+            actual_rows_after_target[WEEKDAY_COL] = actual_rows_after_target[
+                WORK_DATE_COL
+            ].map(lambda date: KOREAN_WEEKDAYS[date.weekday()])
+            filled = pd.concat(
+                [filled, actual_rows_after_target],
+                ignore_index=True,
+                sort=False,
+            )
+
         filled["사용자ID"] = person_df["사용자ID"].iloc[0]
         filled["이름"] = person_df["이름"].iloc[0]
+        if COMPANY_COL in person_df.columns:
+            filled[COMPANY_COL] = person_df[COMPANY_COL].iloc[0]
+        filled = filled.sort_values(WORK_DATE_COL).reset_index(drop=True)
         filled[WORK_DATE_COL] = filled[WORK_DATE_COL].dt.strftime("%Y-%m-%d")
         filled_groups.append(filled[output_columns])
 
     result = pd.concat(filled_groups, ignore_index=True)
     return add_holiday_shift_columns(result)
+
+def add_company_column(
+    df,
+    taeil_cable=TAEIL_CABLE,
+    taeil_material=TAEIL_MATERIAL,
+    user_col="이름"
+):
+    # 조건(Conditions) 설정
+    conditions = [
+        df[user_col].isin(taeil_cable),
+        df[user_col].isin(taeil_material)
+    ]
+
+    # 조건에 맞을 때 들어갈 값(Choices) 설정
+    choices = ["태일전선", "태일소재"]
+
+    # 조건에 맞지 않는 나머지 데이터의 기본값 지정 (예: "미등록" 또는 pd.NA)
+    df[COMPANY_COL] = np.select(conditions, choices, default="미등록")
+
+    return df
