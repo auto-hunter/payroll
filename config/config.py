@@ -1,5 +1,10 @@
 """데이터 검증 및 전처리 설정."""
 
+from openpyxl.formatting.rule import CellIsRule, FormulaRule
+from openpyxl.styles import PatternFill
+from openpyxl.styles import Font
+
+from exporter.excel_conditional_formats import ColumnConditionalFormat
 from exporter.excel_formulas import FormulaColumn, SummaryFormula, OverallFormula
 
 TARGET_MONTH = "2026-07"
@@ -53,6 +58,79 @@ TAEIL_CABLE = [
 TAEIL_MATERIAL = ["심상복","최영일","지노","하디","다낭","존 폴","와유디","이반","아디"]
 
 # excel 수식
+# 조건부서식
+red_font = Font(
+    color="FFFF0000",  # 순수 빨간색 (또는 엑셀 기본 진한 빨강: "FF9C0006")
+    bold=True          # (선택) 굵게 표시하고 싶을 경우
+)
+personal_conditional_formats = [
+    ColumnConditionalFormat(
+        column="총근무시간",
+        rule=CellIsRule(
+            operator="greaterThan",
+            formula=["22"],
+            font=red_font
+        ),
+    ),
+    ColumnConditionalFormat(
+        column="총근무시간",
+        rule=CellIsRule(
+            operator="lessThan",
+            formula=["-1"],
+            font=red_font
+        ),
+    ),
+    ColumnConditionalFormat(
+        column="실근무시간",
+        rule=FormulaRule(
+            formula=[
+                'AND('
+                'INDEX(2:2,1,MATCH("휴일",$1:$1,0))=0,'
+                'INDEX(2:2,1,MATCH("교대일",$1:$1,0))=0,'
+                'INDEX(2:2,1,MATCH("야간근무시간",$1:$1,0))>=8,'
+                'INDEX(2:2,1,MATCH("실근무시간",$1:$1,0))>=13'
+                ')'
+            ],
+            font=red_font,
+        ),
+    ),
+    ColumnConditionalFormat(
+        column="실근무시간",
+        rule=FormulaRule(
+            formula=[
+                'AND('
+                'INDEX(2:2,1,MATCH("휴일",$1:$1,0))=0,'
+                'INDEX(2:2,1,MATCH("교대일",$1:$1,0))=0,'
+                'INDEX(2:2,1,MATCH("야간근무시간",$1:$1,0))=0,'
+                'INDEX(2:2,1,MATCH("실근무시간",$1:$1,0))>=12'
+                ')'
+            ],
+            font=red_font,
+        ),
+    ),
+    ColumnConditionalFormat(
+        column="주휴인정시간",
+        rule=FormulaRule(
+            formula=[
+                'AND('
+                'INDEX(2:2,1,MATCH("주휴인정시간",$1:$1,0))=0,'
+                'INDEX(2:2,1,MATCH("요일",$1:$1,0))="일",'
+                'COUNTIFS(OFFSET(INDEX(1:1,1,MATCH("요일",$1:$1,0)),1,0,ROW()-1,1),"일")=1'
+                ')'
+            ],
+            font=red_font,
+        ),
+    ),
+    ColumnConditionalFormat(
+        column="근무일자",
+        rule=FormulaRule(
+            formula=[
+                'INDEX(2:2,1,MATCH("공휴일",$1:$1,0))=1'
+            ],
+            font=red_font,
+        ),
+    )
+]
 
 def payroll_lookup_summary(label, start_row, default=0):
     def build_formula(ctx):

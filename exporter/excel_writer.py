@@ -16,6 +16,10 @@ from openpyxl.workbook.properties import CalcProperties
 from openpyxl.worksheet.table import Table
 
 from config.config import COMPANY_COL, SHEET_SPLIT_COL
+from exporter.excel_conditional_formats import (
+    ColumnConditionalFormat,
+    apply_column_conditional_formats,
+)
 from exporter.excel_formulas import (
     FormulaColumn,
     OverallFormula,
@@ -106,11 +110,13 @@ def write_dataframe_by_name(
     output_path: str | Path,
     sheet_split_col: str = SHEET_SPLIT_COL,
     personal_formula_columns: Iterable[FormulaColumn] = (),
+    personal_conditional_formats: Iterable[ColumnConditionalFormat] = (),
     personal_summary_formulas: Iterable[SummaryFormula] = (),
     df_overall: pd.DataFrame | None = None,
     overall_sheet_name: str = "급여대장",
     overall_summary_labels: Iterable[str] = (),
     overall_formula_columns: Iterable[OverallFormula] = (),
+    overall_conditional_formats: Iterable[ColumnConditionalFormat] = (),
     user_id_col: str = "사용자ID",
     company_col: str = COMPANY_COL,
     df_deductions: pd.DataFrame | None = None,
@@ -123,11 +129,13 @@ def write_dataframe_by_name(
         output_path: 생성할 xlsx 파일의 경로.
         sheet_split_col: 데이터를 나누는 기준 컬럼.
         personal_formula_columns: 개인별 시트에 추가할 수식 열 규칙.
+        personal_conditional_formats: 개인별 시트 데이터 열의 조건부서식 규칙.
         personal_summary_formulas: 개인별 시트의 데이터 우측에 추가할 요약 수식 규칙.
         df_overall: 급여대장의 기본 데이터. 생략하면 분리 기준 컬럼만 생성한다.
         overall_sheet_name: 첫 번째 시트로 만들 급여대장의 이름.
         overall_summary_labels: 개인별 요약 셀을 참조해 급여대장에 추가할 항목명.
         overall_formula_columns: 사용자ID로 개인 요약 값을 조회할 급여대장 수식 열 규칙.
+        overall_conditional_formats: 급여대장 데이터 열의 조건부서식 규칙.
         user_id_col: 개인 시트와 급여대장을 연결하는 사용자ID 컬럼.
         company_col: 개인 시트에서 급여대장으로 가져올 등록사업장 컬럼.
         df_deductions: 급여대장 수식 열 뒤에 추가할 공제 정보.
@@ -165,8 +173,10 @@ def write_dataframe_by_name(
     used_titles: set[str] = set()
     # generator로 전달된 규칙도 모든 시트에서 재사용할 수 있게 고정한다.
     personal_formula_rules = tuple(personal_formula_columns)
+    personal_conditional_format_rules = tuple(personal_conditional_formats)
     personal_summary_rules = tuple(personal_summary_formulas)
     overall_formula_rules = tuple(overall_formula_columns)
+    overall_conditional_format_rules = tuple(overall_conditional_formats)
     needs_user_id = bool(overall_formula_rules) or df_deductions is not None
     overall_labels = tuple(str(label).strip() for label in overall_summary_labels)
     if any(not label for label in overall_labels):
@@ -204,6 +214,11 @@ def write_dataframe_by_name(
 
         # 데이터 오른쪽에 호출자가 정의한 수식 열을 동일하게 추가한다.
         apply_formula_columns(worksheet, personal_formula_rules)
+        # 요약 영역이 max_row를 늘리기 전에 실제 데이터 행에만 적용한다.
+        apply_column_conditional_formats(
+            worksheet,
+            personal_conditional_format_rules,
+        )
         # 빈 열 하나를 사이에 두고 제목/값 형태의 요약 영역을 추가한다.
         summary_cells = apply_summary_formulas(worksheet, personal_summary_rules)
         key = _lookup_key(name)
@@ -401,6 +416,11 @@ def write_dataframe_by_name(
                     target_column,
                     _to_excel_value(deduction_row[deduction_column]),
                 )
+
+    apply_column_conditional_formats(
+        overall_worksheet,
+        overall_conditional_format_rules,
+    )
 
     # 모든 열이 만들어진 급여대장 데이터 영역을 Excel 테이블로 지정한다.
     table_ref = (

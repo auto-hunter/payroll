@@ -6,7 +6,8 @@ from validator.input_validator import valid_input_file
 from preprocessor.data_cleaner import (
     filter_rows, parse_commute_logs,
     add_weekday_column, add_holiday_shift_columns,
-    adjust_commute_time_columns, fill_missing_dates
+    adjust_commute_time_columns, fill_missing_dates,
+    filter_work_records_by_target_month,
 )
 
 def payroll_lookup_summary(label, start_row, default=0):
@@ -38,6 +39,7 @@ else:
 
 df = filter_rows(df) # 불필요행 삭제
 df = parse_commute_logs(df) # 출퇴근 로그 파싱
+df = filter_work_records_by_target_month(df) # 대상 월 근무만 유지
 df = add_weekday_column(df) # 출근시간 기준 요일 추가
 df = adjust_commute_time_columns(df) # 실출근/퇴근 시간 계산
 df = add_holiday_shift_columns(df) # 휴일, 교대일 추가

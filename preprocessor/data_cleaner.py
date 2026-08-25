@@ -114,39 +114,32 @@ def filter_rows(df: pd.DataFrame) -> pd.DataFrame:
     return working.loc[keep_mask].reset_index(drop=True)
 
 
-def filter_logs_after_target_month(
+def filter_work_records_by_target_month(
     df: pd.DataFrame,
     target_month: str = TARGET_MONTH,
 ) -> pd.DataFrame:
-    """대상 월 이후에는 퇴근 로그만 남긴다.
+    """근무일자가 대상 월에 속하는 근무 기록만 남긴다.
 
-    대상 월 마지막 날까지의 로그는 출근 시각과 관계없이 모두 유지한다.
-    따라서 말일 야간 출근과 다음 달에 기록된 퇴근을
-    :func:`parse_commute_logs`가 하나의 근무로 연결할 수 있다.
-
-    다음 달 이후에 새로 기록된 출근 로그는 17시 이후 야간 출근을 포함해
-    모두 제거하고, 이전 근무를 마감할 수 있는 퇴근 로그만 유지한다.
+    :func:`parse_commute_logs` 실행 후 만들어진 ``근무일자``를 기준으로
+    대상 월 이전과 이후의 기록을 모두 제거한다. 따라서 대상 월 말일에
+    출근하여 다음 달에 퇴근한 기록은 대상 월 근무로 유지된다.
 
     Args:
-        df: ``발생일자``와 ``모드`` 컬럼을 포함한 원본 출퇴근 로그.
+        df: ``근무일자`` 컬럼을 포함한 파싱 완료 근무 기록.
         target_month: 급여 대상 월을 나타내는 ``YYYY-MM`` 문자열.
 
     Returns:
-        원본 순서를 유지하면서 조건에 맞는 행만 남긴 DataFrame.
+        원본 순서를 유지하면서 대상 월 근무만 남긴 DataFrame.
 
     Raises:
         KeyError: 필요한 컬럼이 없을 때.
-        ValueError: 대상 월 또는 발생일자를 날짜로 변환할 수 없을 때.
+        ValueError: 대상 월 또는 근무일자를 날짜로 변환할 수 없을 때.
     """
     if df is None or df.empty:
         return df.copy() if df is not None else pd.DataFrame()
 
-    required_columns = ("발생일자", "모드")
-    missing_columns = [
-        column for column in required_columns if column not in df.columns
-    ]
-    if missing_columns:
-        raise KeyError(f"필수 컬럼이 없습니다: {', '.join(missing_columns)}")
+    if WORK_DATE_COL not in df.columns:
+        raise KeyError(f"필수 컬럼이 없습니다: {WORK_DATE_COL}")
 
     normalized_target_month = str(target_month).strip()
     if not re.fullmatch(r"\d{4}-\d{2}", normalized_target_month):
@@ -154,15 +147,12 @@ def filter_logs_after_target_month(
 
     target_period = pd.Period(normalized_target_month, freq="M")
     working = df.copy()
-    event_dates = pd.to_datetime(working["발생일자"], errors="coerce")
-    if event_dates.isna().any():
-        raise ValueError("발생일자 컬럼에 날짜로 변환할 수 없는 값이 있습니다.")
+    work_dates = pd.to_datetime(working[WORK_DATE_COL], errors="coerce")
+    if work_dates.isna().any():
+        raise ValueError(f"{WORK_DATE_COL} 컬럼에 날짜로 변환할 수 없는 값이 있습니다.")
 
-    after_target_month = event_dates.dt.to_period("M") > target_period
-    clock_out = working["모드"].map(_normalize_text).eq("퇴근")
-    keep_mask = ~after_target_month | clock_out
-
-    return working.loc[keep_mask].reset_index(drop=True)
+    in_target_month = work_dates.dt.to_period("M") == target_period
+    return working.loc[in_target_month].reset_index(drop=True)
 
 
 def parse_commute_logs(df: pd.DataFrame) -> pd.DataFrame:
