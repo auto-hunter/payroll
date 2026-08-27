@@ -39,8 +39,12 @@
 - `refactor/YYMMDD-NN/` 기능 변경 없는 코드 구조/성능 개선
 - `YYMMDD-NN` 작업날짜, 일련번호 (예: 20260801-01)
 
-## Release Process
+## PR Rule
+- 제목: Branch의 prefix를 대괄호로 감싸고 업데이트 명을 적는다. (예: `[feature] 출퇴근 로그 파싱 자동화`)
+- 본문: 변경 사항 요약, 변경 이유, 테스트 방법 등 작성한다.
+- 머지 전 스스로 코드리뷰 후 Merge 진행한다.
 
+## Release Process
 - **작업 시작**: master에서 새로운 작업 브랜치 생성 (예: `feature/log-parser` 또는 `fix/excel-bug`)
 - **개발 및 커밋**: 개발, 커밋 진행 후 해당 브랜치 푸시
 - **Self PR**: GitHub 웹으로 이동하여 master 방향으로 PR을 생성하고, 코드 변경점을 최종 자가 검수 후 Merge
@@ -48,4 +52,5 @@
   - 배포할 시점이 되면 GitHub 웹의 Releases 메뉴로 이동
   - `Draft a new release`를 누르고 새 버전에 맞는 태그(예: `v26.08.01`) 생성 및 변경 사항 요약 작성 후 Publish
 
+  
 ## Architecture (WIP)
