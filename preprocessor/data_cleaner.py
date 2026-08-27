@@ -21,7 +21,7 @@ import re
 import pandas as pd
 import numpy as np
 
-from config.config import (
+from config.data_config import (
     DATA_CLEANER_FILTER_ITEMS,
     HOLIDAY_DATES,
     WEEKEND_WEEKDAYS,
@@ -525,6 +525,9 @@ def add_company_column(
     taeil_material=TAEIL_MATERIAL,
     user_col="이름"
 ):
+    """
+    입력 DataFrame에 회사명을 나타내는 COMPANY_COL 컬럼을 추가한다.
+    """
     # 조건(Conditions) 설정
     conditions = [
         df[user_col].isin(taeil_cable),

@@ -5,69 +5,12 @@ from openpyxl.styles import Font
 from exporter.excel_conditional_formats import ColumnConditionalFormat
 from exporter.excel_formulas import FormulaColumn, SummaryFormula, OverallFormula
 
-
-# 1. 월별 설정
-TARGET_MONTH = "2026-07" # 계산 월
-HOLIDAY_DATES = ["2026-07-17"] # 공휴일
-SHIFT_DATES = ["2026-07-05"] # 교대일
+from config.data_config import NAME_COL, TARGET_MONTH
 
 
-# 2. 캡스 파일 설정
-# 2.1 필수 컬럼
-INPUT_FILE_REQUIRED_COLUMNS = (
-    "발생일자",
-    "발생시각",
-    "단말기ID",
-    "사용자ID",
-    "이름",
-    "사원번호",
-    "모드",
-)
-
-# 2.2 "등록사업장" 컬럼 추가 설정
-TAEIL_CABLE = [
-    "마빈","나낭","김위","알존","이영련","우마르","노닐","아왈","리오","젤리빈","홍용표",
-    "노베르토,","무하마드","렌델","김용범","도니","이라완","아리아","안드린","에르딘","누리스"
-]
-TAEIL_MATERIAL = ["심상복","최영일","지노","하디","다낭","존 폴","와유디","이반","아디"]
-
-# 2.2 필터링 규칙 설정
-    # - exclude: 해당 값이면 제거
-    # - include: 해당 값일 때만 유지
-    # 단일 값/리스트/세트/튜플도 호환으로 허용
-DATA_CLEANER_FILTER_ITEMS = {
-    "이름": {"exclude": [""]},
-    "모드": {"include": ["출근", "퇴근"]}
-}
-
-
-# 3. 출력 데이터프레임 설정
-# 3.1 출력 컬럼명
-WORK_DATE_COL = "근무일자"
-WEEKDAY_COL = "요일"
-START_COL = "출근시간"
-END_COL = "퇴근시간"
-ACTUAL_START_COL = "실출근시간"
-ACTUAL_END_COL = "실퇴근시간"
-NAME_COL = "이름"
-COMPANY_COL = "등록사업장"
-
-# 3.2 출근 시간 전처리 규칙
-    # 출근 기록과 퇴근 기록을 같은 근무 건으로 묶을 수 있는 최대 시간 간격
-    # 출근 시간과 퇴근시간이 24시간 이상 차이나면 같은 근무 건으로 묶지 않고, 출근 기록만 있는 근무 건으로 처리
-MAX_WORK_HOURS = 24
-
-
-# 4. 출력 데이터프레임 이후 작업
-# 4.1 주말 설정
-WEEKEND_WEEKDAYS = ["토", "일"]
-
-
-#########
-
-# 엑셀 설정
-# 분할 기준 (출력 데이트프레임 -> 엑셀 시트 옮길 때)
 SHEET_SPLIT_COL = NAME_COL
+OUTPUT_FILE_NAME = f"output_{TARGET_MONTH.replace('-', '')}.xlsx"
+
 
 def payroll_lookup_summary(label, start_row, default=0):
     def build_formula(ctx):
@@ -418,6 +361,18 @@ red_font = Font(
     bold=True          # (선택) 굵게 표시하고 싶을 경우
 )
 personal_conditional_formats = [
+    ColumnConditionalFormat(
+        column="근무일자",
+        rule=FormulaRule(
+            formula=[
+                'COUNTIF('
+                'INDEX($2:$1000, 0, MATCH("근무일자", $1:$1, 0)),'
+                'INDEX(2:2, 1, MATCH("근무일자", $1:$1, 0))'
+                ') > 1'
+            ],
+            font=red_font
+        )
+    ),
     ColumnConditionalFormat(
         column="총근무시간",
         rule=CellIsRule(
