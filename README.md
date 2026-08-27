@@ -1,6 +1,6 @@
 # 태일전선 급여계산 자동화 프로그램
 
-![Version](https://img.shields.io/badge/version-26.08.01-blue.svg)
+![Version](https://img.shields.io/badge/version-v26.08.01-blue.svg)
 ![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=flat&logo=python&logoColor=white)
 
 > 태일전선 급여계산 자동화 프로그램은 급여 계산을 자동화하여 효율성을 높이고 오류를 최소화하는 솔루션입니다.  
