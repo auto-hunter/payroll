@@ -10,9 +10,9 @@
 2. **출퇴근 로그 파싱 자동화**: 근태 기록 데이터를 자동으로 추출 및 정형화
 3. **엑셀 수식 및 레이아웃 자동화**: 계산 수식 반영 및 지정 레이아웃으로 엑셀 파일 출력
 
-# 사용 방법
+# 사용 방법 (WIP)
 ```bash
-...
+python main.py
 ```
 
 ------
@@ -44,8 +44,17 @@
 - 본문: 변경 사항 요약, 변경 이유, 테스트 방법 등 작성한다.
 - 머지 전 스스로 코드리뷰 후 Merge 진행한다.
 
+## Issues Rule
+- Title: [Prefix] 제목 (e.g. [feat] 자동 서식 변경 기능 추가)
+- Prefix
+  - [feat]: 새로운 기능 추가
+  - [fix]: 간단한 코드 수정 및 오타 처리
+  - [docs]: 문서 작업 (README, API 명세 등)
+  - [refactor]: 기능 변경 없는 코드 개선 및 구조 변경
+
 ## Release Process
-- **작업 시작**: master에서 새로운 작업 브랜치 생성 (예: `feature/log-parser` 또는 `fix/excel-bug`)
+- **작업 시작**: Issues 메뉴에서 새로운 Issue 생성 후 작업 시작
+- **브랜치 생성**: master에서 새로운 작업 브랜치 생성 (예: `feature/log-parser` 또는 `fix/excel-bug`)
 - **개발 및 커밋**: 개발, 커밋 진행 후 해당 브랜치 푸시
 - **Self PR**: GitHub 웹으로 이동하여 master 방향으로 PR을 생성하고, 코드 변경점을 최종 자가 검수 후 Merge
 - **태그/릴리스 생성** (GitHub Web):
