@@ -6,7 +6,7 @@ DEDUCT_FILE_NAME = "master_factory_worker.xlsx"
 # 1. 월별 설정
 TARGET_MONTH = "2026-08" # 계산 월
 HOLIDAY_DATES = ["2026-08-17"] # 공휴일
-SHIFT_DATES = ["2026-08-09", "2026-08-16"] # 교대일
+SHIFT_DATES = ["2026-08-09", "2026-08-16", "2026-08-30", "2026-08-31"] # 교대일
 
 
 # 2. 캡스 파일 설정
