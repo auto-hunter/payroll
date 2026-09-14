@@ -6,7 +6,7 @@ DEDUCT_FILE_NAME = "master_factory_worker.xlsx"
 # 1. 월별 설정
 TARGET_MONTH = "2026-08" # 계산 월
 HOLIDAY_DATES = ["2026-08-17"] # 공휴일
-SHIFT_DATES = ["2026-08-09", "2026-08-16", "2026-08-30", "2026-08-31"] # 교대일
+SHIFT_DATES = ["2026-08-09", "2026-08-16", "2026-08-30"] # 교대일
 
 
 # 2. 캡스 파일 설정
@@ -39,7 +39,7 @@ TAEIL_MATERIAL = ["심상복","최영일","지노","하디","다낭","존 폴","
     # - include: 해당 값일 때만 유지
     # 단일 값/리스트/세트/튜플도 호환으로 허용
 DATA_CLEANER_FILTER_ITEMS = {
-    "이름": {"exclude": [""]},
+    "이름": {"exclude": ["", "권석현"]},
     "모드": {"include": ["출근", "퇴근"]}
 }
 
@@ -55,10 +55,65 @@ ACTUAL_END_COL = "실퇴근시간"
 NAME_COL = "이름"
 COMPANY_COL = "등록사업장"
 
-# 3.2 출근 시간 전처리 규칙
+# 3.2 출입 참고 로그 설정
+# 누락 출퇴근시간 추천에는 일반 출입 기록만 사용한다.
+REFERENCE_LOG_MODES = ("출입",)
+REFERENCE_LOG_TOLERANCE = "1h"
+REFERENCE_SHIFT_DETECTION_TOLERANCE = "2h"
+REFERENCE_OUTPUT_COLUMNS = {
+    START_COL: "출근참고시간",
+    END_COL: "퇴근참고시간",
+}
+
+REFERENCE_WORK_SCHEDULES = {
+    "평일주간": {
+        "weekdays": ("월", "화", "수", "목", "금"),
+        "shift_day": False,
+        START_COL: "8h",
+        END_COL: "19h",
+    },
+    "평일야간": {
+        "weekdays": ("월", "화", "수", "목", "금"),
+        "shift_day": False,
+        START_COL: "19h",
+        END_COL: "1d 8h",
+    },
+    "교대일주간": {
+        "weekdays": None,
+        "shift_day": True,
+        START_COL: "12h",
+        END_COL: "1d 8h",
+    },
+    "토요일야간": {
+        "weekdays": ("토",),
+        "shift_day": False,
+        START_COL: "19h",
+        END_COL: "1d 12h",
+    },
+}
+
+# 3.3 출근 시간 전처리 규칙
     # 출근 기록과 퇴근 기록을 같은 근무 건으로 묶을 수 있는 최대 시간 간격
     # 출근 시간과 퇴근시간이 24시간 이상 차이나면 같은 근무 건으로 묶지 않고, 출근 기록만 있는 근무 건으로 처리
 MAX_WORK_HOURS = 24
+
+# 3.4 출력 데이터 컬럼 순서
+COMMUTE_COLUMN_ORDER = [
+    USER_ID_COL,
+    NAME_COL,
+    COMPANY_COL,
+    WORK_DATE_COL,
+    START_COL,
+    END_COL,
+    WEEKDAY_COL,
+    REFERENCE_OUTPUT_COLUMNS[START_COL],
+    REFERENCE_OUTPUT_COLUMNS[END_COL],
+    ACTUAL_START_COL,
+    ACTUAL_END_COL,
+    "휴일",
+    "공휴일",
+    "교대일"
+]
 
 
 # 4. 출력 데이터프레임 이후 작업

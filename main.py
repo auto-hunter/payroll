@@ -17,7 +17,7 @@ from config.excel_config import (
 from validator.input_validator import valid_input_file
 
 from preprocessor.data_cleaner import (
-    filter_rows, parse_commute_logs,
+    filter_rows, parse_commute_logs, add_nearest_reference_logs,
     add_weekday_column, add_holiday_shift_columns,
     adjust_commute_time_columns, fill_missing_dates,
     filter_work_records_by_target_month, add_company_column
@@ -27,24 +27,25 @@ from exporter.excel_writer import write_dataframe_by_name
 
 
 # 입력 파일 읽기 (캡스)
-df = pd.read_excel(INPUT_FILE_NAME)
+df_raw = pd.read_excel(INPUT_FILE_NAME)
 
-if valid_input_file(df)[0]:
+if valid_input_file(df_raw)[0]:
     print('검증성공')
-    print(df.shape)
+    print(df_raw.shape)
 else:
     print('검증실패')
 
-df = add_company_column(df) # 등록사업장(전선 or 소재) 열 추가
+df = add_company_column(df_raw) # 등록사업장(전선 or 소재) 열 추가
 df = filter_rows(df) # 불필요행 삭제 (이름이 없는 행, 모드가 출근/퇴근이 아닌 행 등)
-df = parse_commute_logs(df) # 출퇴근 로그 파싱
-df = filter_work_records_by_target_month(df) # 급여계산에 필요한 대상 월 근무만 유지, 나머지는 제거
-df = add_weekday_column(df) # 근무일자 기준 요일 열 추가
-df = adjust_commute_time_columns(df) # 실출근/퇴근 시간 계산
-df = add_holiday_shift_columns(df) # 휴일, 교대일 열 추가
-df = fill_missing_dates(df) # 결측 근무일 채우기
+df_commute = parse_commute_logs(df) # 출퇴근 로그 파싱
+df_commute = filter_work_records_by_target_month(df_commute) # 급여계산에 필요한 대상 월 근무만 유지, 나머지는 제거
+df_commute = add_weekday_column(df_commute) # 근무일자 기준 요일 열 추가
+df_commute = adjust_commute_time_columns(df_commute) # 실출근/퇴근 시간 계산
+df_commute = add_holiday_shift_columns(df_commute) # 휴일, 교대일 열 추가
+df_commute = fill_missing_dates(df_commute) # 결측 근무일 채우기
+df_commute = add_nearest_reference_logs(df_commute, df_raw) # 출입 참고 로그 연결
 print('전처리 완료')
-print(df.shape)
+print(df_commute.shape)
 
 
 # 공제 정보
@@ -54,7 +55,7 @@ df_deductions[USER_ID_COL] = df_deductions[USER_ID_COL].astype(str).str.zfill(4)
 
 # 엑셀 출력
 write_dataframe_by_name(
-    df,
+    df_commute,
     output_path=OUTPUT_FILE_NAME,
     personal_formula_columns=personal_formula_columns,
     personal_conditional_formats=personal_conditional_formats,
