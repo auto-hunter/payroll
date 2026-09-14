@@ -1,6 +1,5 @@
 from openpyxl.formatting.rule import CellIsRule, FormulaRule
-# from openpyxl.styles import PatternFill
-from openpyxl.styles import Font
+from openpyxl.styles import Font, PatternFill
 
 from exporter.excel_conditional_formats import ColumnConditionalFormat
 from exporter.excel_formulas import FormulaColumn, SummaryFormula, OverallFormula
@@ -413,6 +412,12 @@ red_font = Font(
     color="FFFF0000",  # 순수 빨간색 (또는 엑셀 기본 진한 빨강: "FF9C0006")
     bold=True          # (선택) 굵게 표시하고 싶을 경우
 )
+red_fill = PatternFill(
+    start_color="FFFFC7CE",
+    end_color="FFFFC7CE",
+    fill_type="solid"
+)
+
 personal_conditional_formats = [
     ColumnConditionalFormat(
         column="근무일자",
@@ -485,11 +490,16 @@ personal_conditional_formats = [
     ),
     ColumnConditionalFormat(
         column="근무일자",
+        end_column="연차인정시간",
         rule=FormulaRule(
             formula=[
-                'INDEX(2:2,1,MATCH("공휴일",$1:$1,0))=1'
+                'OR('
+                'INDEX(2:2, 1, MATCH("공휴일", $1:$1, 0))=1, '
+                'INDEX(2:2, 1, MATCH("요일", $1:$1, 0))="토", '
+                'INDEX(2:2, 1, MATCH("요일", $1:$1, 0))="일"'
+                ')'
             ],
-            font=red_font,
+            fill=red_fill,
         ),
     )
 ]
