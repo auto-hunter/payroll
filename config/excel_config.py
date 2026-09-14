@@ -89,20 +89,33 @@ personal_formula_columns = [
     ),
     FormulaColumn(
         header="공휴일인정시간",
-        formula=lambda ctx: f'=IF({ctx.cell("공휴일")} = 1, 8, 0)',
+        formula=lambda ctx: f"=IF({ctx.cell("공휴일")} = 1, 8, 0)",
+        number_format="0",
+    ),
+    FormulaColumn(
+        header="연차인정시간",
+        formula=lambda ctx: "=0",
         number_format="0",
     )
 ]
 
 personal_summary_formulas = [
-    payroll_lookup_summary("통상시급", start_row=2, default=10320),
+    SummaryFormula(
+        label="이름",
+        formula=lambda ctx: (
+            f"=INDEX({ctx.column_range('이름')},1)"
+        ),
+        number_format="0",
+        start_row=2
+    ),
+    payroll_lookup_summary("통상시급", start_row=3, default=10320),
     SummaryFormula(
         label="소정근무시간합계",
         formula=lambda ctx: (
             f"=SUM({ctx.column_range('소정근무시간')})"
         ),
         number_format="0",
-        start_row=4
+        start_row=5
     ),
     SummaryFormula(
         label="주휴인정시간",
@@ -110,7 +123,7 @@ personal_summary_formulas = [
             f"=SUM({ctx.column_range('주휴인정시간')})"
         ),
         number_format="0",
-        start_row=5
+        start_row=6
     ),
     SummaryFormula(
         label="평일연장근무시간합계",
@@ -118,7 +131,7 @@ personal_summary_formulas = [
             f"=SUM({ctx.column_range('평일연장근무시간')})"
         ),
         number_format="0",
-        start_row=6
+        start_row=7
     ),
     SummaryFormula(
         label="휴일근무시간합계",
@@ -126,7 +139,7 @@ personal_summary_formulas = [
             f"=SUM({ctx.column_range('휴일근무시간')})"
         ),
         number_format="0",
-        start_row=7
+        start_row=8
     ),
     SummaryFormula(
         label="휴일연장근무시간합계",
@@ -134,7 +147,7 @@ personal_summary_formulas = [
             f"=SUM({ctx.column_range('휴일연장근무시간')})"
         ),
         number_format="0",
-        start_row=8
+        start_row=9
     ),
     SummaryFormula(
         label="야간근무시간합계",
@@ -142,36 +155,37 @@ personal_summary_formulas = [
             f"=SUM({ctx.column_range('야간근무시간')})"
         ),
         number_format="0",
-        start_row=9
+        start_row=10
     ),
+    SummaryFormula(
+        label="공휴일인정시간합계",
+        formula=lambda ctx: (
+            f"=SUM({ctx.column_range('공휴일인정시간')})"
+        ),
+        number_format="0",
+        start_row=11
+    ),
+    SummaryFormula(
+        label="연차인정시간합계",
+        formula=lambda ctx: (
+            f"=SUM({ctx.column_range('연차인정시간')})"
+        ),
+        number_format="0",
+        start_row=12
+    ),
+
     SummaryFormula(
         label="기본급",
         formula=lambda ctx: (
             f"=( {ctx.summary_cell('소정근무시간합계')} + {ctx.summary_cell('주휴인정시간')} ) * {ctx.summary_cell('통상시급')}"
         ),
         number_format="#,##0",
-        start_row=12,
+        start_row=14,
     ),
     SummaryFormula(
         label="평일연장수당",
         formula=lambda ctx: (
             f"={ctx.summary_cell('평일연장근무시간합계')} * {ctx.summary_cell('통상시급')} * 1.5"
-        ),
-        number_format="#,##0",
-        start_row=13,
-    ),
-    SummaryFormula(
-        label="휴일근무수당",
-        formula=lambda ctx: (
-            f"={ctx.summary_cell('휴일근무시간합계')} * {ctx.summary_cell('통상시급')} * 1.5"
-        ),
-        number_format="#,##0",
-        start_row=14,
-    ),
-    SummaryFormula(
-        label="휴일연장수당",
-        formula=lambda ctx: (
-            f"={ctx.summary_cell('휴일연장근무시간합계')} * {ctx.summary_cell('통상시급')} * 2.0"
         ),
         number_format="#,##0",
         start_row=15,
@@ -185,38 +199,62 @@ personal_summary_formulas = [
         start_row=16,
     ),
     SummaryFormula(
-        label="기타수당",
+        label="휴일수당",
         formula=lambda ctx: (
-            f"=0"
+            f"=({ctx.summary_cell('휴일근무시간합계')} * {ctx.summary_cell('통상시급')} * 1.5) + ({ctx.summary_cell('휴일연장근무시간합계')} * {ctx.summary_cell('통상시급')} * 2.0)"
         ),
         number_format="#,##0",
         start_row=17,
     ),
     SummaryFormula(
-        label="지급합계",
+        label="연차수당",
         formula=lambda ctx: (
-            f"=SUM({ctx.summary_cell('기본급')},{ctx.summary_cell('평일연장수당')},{ctx.summary_cell('휴일근무수당')},{ctx.summary_cell('휴일연장수당')},{ctx.summary_cell('야간수당')},{ctx.summary_cell('기타수당')})"
+            f"={ctx.summary_cell('연차인정시간합계')} * {ctx.summary_cell('통상시급')}"
         ),
         number_format="#,##0",
         start_row=18,
     ),
+    SummaryFormula(
+        label="공휴일수당",
+        formula=lambda ctx: (
+            f"={ctx.summary_cell('공휴일인정시간합계')} * {ctx.summary_cell('통상시급')}"
+        ),
+        number_format="#,##0",
+        start_row=19,
+    ),
+    SummaryFormula(
+        label="기타수당",
+        formula=lambda ctx: (
+            f"=0"
+        ),
+        number_format="#,##0",
+        start_row=20,
+    ),
+    SummaryFormula(
+        label="지급합계",
+        formula=lambda ctx: (
+            f"=SUM({ctx.summary_cell('기본급')},{ctx.summary_cell('평일연장수당')},{ctx.summary_cell('휴일수당')},{ctx.summary_cell('연차수당')},{ctx.summary_cell('공휴일수당')},{ctx.summary_cell('야간수당')},{ctx.summary_cell('기타수당')})"
+        ),
+        number_format="#,##0",
+        start_row=21,
+    ),
     *[
         payroll_lookup_summary(label, start_row)
         for label, start_row in [
-            ("고용보험", 20),
-            ("고용보험정산", 21),
-            ("국민연금", 22),
-            ("건강보험", 23),
-            ("건강보험정산", 24),
-            ("장기요양", 25),
-            ("장기요양정산", 26),
-            ("환급금이자", 27),
-            ("관리비", 28),
-            ("식대비", 29),
-            ("소득세", 30),
-            ("지방소득세", 31),
-            ("지방소득세정산", 32),
-            ("기타공제", 33),
+            ("고용보험", 23),
+            ("고용보험정산", 24),
+            ("국민연금", 25),
+            ("건강보험", 26),
+            ("건강보험정산", 27),
+            ("장기요양", 28),
+            ("장기요양정산", 29),
+            ("환급금이자", 30),
+            ("관리비", 31),
+            ("식대비", 32),
+            ("소득세", 33),
+            ("지방소득세", 34),
+            ("지방소득세정산", 35),
+            ("기타공제", 36),
         ]
     ],
     SummaryFormula(
@@ -225,8 +263,16 @@ personal_summary_formulas = [
             f"=SUM({ctx.summary_cell('고용보험')},{ctx.summary_cell('고용보험정산')},{ctx.summary_cell('국민연금')},{ctx.summary_cell('건강보험')},{ctx.summary_cell('건강보험정산')},{ctx.summary_cell('장기요양')},{ctx.summary_cell('장기요양정산')},{ctx.summary_cell('환급금이자')},{ctx.summary_cell('관리비')},{ctx.summary_cell('식대비')},{ctx.summary_cell('소득세')},{ctx.summary_cell('지방소득세')},{ctx.summary_cell('지방소득세정산')},{ctx.summary_cell('기타공제')})"
         ),
         number_format="#,##0",
-        start_row=34,
+        start_row=37,
     ),
+    SummaryFormula(
+        label="차인지급액",
+        formula=lambda ctx: (
+            f"={ctx.summary_cell('지급합계')}-{ctx.summary_cell('공제합계')}"
+        ),
+        number_format="#,##0",
+        start_row=39,
+    )
 ]
 
 overall_formula_columns = [
@@ -305,25 +351,6 @@ overall_formula_columns = [
         number_format="0",
     ),
     OverallFormula(
-        header="휴일근무수당",
-        formula=lambda ctx: ctx.vlookup_summary(
-            "사용자ID",
-            "휴일근무수당",
-            default=0,
-        ),
-        number_format="0",
-    ),
-    OverallFormula(
-        header="휴일연장수당",
-        formula=lambda ctx: ctx.vlookup_summary(
-            "사용자ID",
-            "휴일연장수당",
-            default=0,
-        ),
-        number_format="0",
-    ),
-
-    OverallFormula(
         header="야간수당",
         formula=lambda ctx: ctx.vlookup_summary(
             "사용자ID",
@@ -332,7 +359,33 @@ overall_formula_columns = [
         ),
         number_format="0",
     ),
-
+    OverallFormula(
+        header="휴일수당",
+        formula=lambda ctx: ctx.vlookup_summary(
+            "사용자ID",
+            "휴일수당",
+            default=0,
+        ),
+        number_format="0",
+    ),
+    OverallFormula(
+        header="연차수당",
+        formula=lambda ctx: ctx.vlookup_summary(
+            "사용자ID",
+            "연차수당",
+            default=0,
+        ),
+        number_format="0",
+    ),
+    OverallFormula(
+        header="공휴일수당",
+        formula=lambda ctx: ctx.vlookup_summary(
+            "사용자ID",
+            "공휴일수당",
+            default=0,
+        ),
+        number_format="0",
+    ),
     OverallFormula(
         header="기타수당",
         formula=lambda ctx: ctx.vlookup_summary(
@@ -411,7 +464,7 @@ personal_conditional_formats = [
                 'INDEX(2:2,1,MATCH("휴일",$1:$1,0))=0,'
                 'INDEX(2:2,1,MATCH("교대일",$1:$1,0))=0,'
                 'INDEX(2:2,1,MATCH("야간근무시간",$1:$1,0))=0,'
-                'INDEX(2:2,1,MATCH("실근무시간",$1:$1,0))>=12'
+                'INDEX(2:2,1,MATCH("실근무시간",$1:$1,0))>=11'
                 ')'
             ],
             font=red_font,
