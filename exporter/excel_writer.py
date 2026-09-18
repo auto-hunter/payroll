@@ -15,7 +15,8 @@ from openpyxl.utils.cell import absolute_coordinate, get_column_letter
 from openpyxl.workbook.properties import CalcProperties
 from openpyxl.worksheet.table import Table
 
-from config.config import COMPANY_COL, SHEET_SPLIT_COL
+from config.data_config import COMPANY_COL
+from config.excel_config import SHEET_SPLIT_COL
 from exporter.excel_conditional_formats import (
     ColumnConditionalFormat,
     apply_column_conditional_formats,
