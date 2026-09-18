@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from config.config import INPUT_FILE_REQUIRED_COLUMNS
+from config.data_config import INPUT_FILE_REQUIRED_COLUMNS
 
 
 def _is_blank_series(series: pd.Series) -> bool:
