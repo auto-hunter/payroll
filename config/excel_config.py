@@ -72,7 +72,20 @@ personal_formula_columns = [
     FormulaColumn(
         header="야간근무시간",
         formula=lambda ctx: (
-            f"=MAX(0, MIN({ctx.cell('실퇴근시간')}, INT({ctx.cell('실출근시간')}) - (MOD({ctx.cell('실출근시간')}, 1) < 6/24) + 30/24) - MAX({ctx.cell('실출근시간')}, INT({ctx.cell('실출근시간')}) - (MOD({ctx.cell('실출근시간')}, 1) < 6/24) + 22/24)) * 24"
+            f'=IF('
+            f'OR({ctx.cell("실출근시간")}="", {ctx.cell("실퇴근시간")}=""),'
+            f'0,'
+            f'MAX('
+            f'0,'
+            f'MIN('
+            f'{ctx.cell("실퇴근시간")},'
+            f'INT({ctx.cell("실출근시간")}) - (MOD({ctx.cell("실출근시간")}, 1) < 6/24) + 30/24'
+            f') - MAX('
+            f'{ctx.cell("실출근시간")},'
+            f'INT({ctx.cell("실출근시간")}) - (MOD({ctx.cell("실출근시간")}, 1) < 6/24) + 22/24'
+            f')'
+            f') * 24'
+            f')'
         ),
         number_format="0"
     ),
