@@ -1,6 +1,34 @@
-"""openpyxl을 이용한 엑셀 파일 출력 모듈.
+"""전처리가 끝난 DataFrame을 급여 Excel 파일로 조립하는 모듈.
 
-DataFrame을 이름별 시트로 나누어 기록한다.
+이 모듈은 exporter 계층의 최상위 조정자이자 진입점이다. 직원별 워크시트와
+전체 급여대장을 생성하고, 다른 exporter 모듈의 수식 및 조건부서식 적용
+기능을 조합한 뒤 최종 ``.xlsx`` 파일을 저장한다.
+
+모듈 위계와 의존 방향::
+
+    main.py
+        -> excel_writer.py                 # 최상위 조정자 / 파일 저장
+            -> excel_formulas.py           # 수식 배치 도구
+            -> excel_conditional_formats.py  # 조건부서식 적용 도구
+
+``excel_formulas``와 ``excel_conditional_formats``는 같은 하위 계층에 있고
+서로를 참조하지 않는다. 두 모듈은 이 모듈을 알지 못하며, ``excel_writer``만
+두 도구를 호출하는 단방향 의존 구조다.
+
+주요 처리 흐름::
+
+    전처리 DataFrame
+        -> 직원별 시트 생성
+        -> 행별 수식 / 조건부서식 / 개인 요약 적용
+        -> 전체 급여대장 생성
+        -> 개인 요약 및 공제 정보 연결
+        -> Excel 테이블 구성 및 파일 저장
+
+역할 경계:
+    - ``config.excel_config``: 어떤 수식과 서식을 사용할지 정의한다.
+    - ``excel_formulas``: 정의된 수식을 워크시트에 배치한다.
+    - ``excel_conditional_formats``: 정의된 조건부서식을 범위에 적용한다.
+    - 이 모듈: 위 기능을 순서대로 조합하고 통합문서를 저장한다.
 """
 
 from __future__ import annotations
@@ -125,6 +153,21 @@ def write_dataframe_by_name(
 ) -> Path:
     """DataFrame을 이름별 시트로 나누어 새 엑셀 파일에 저장한다.
 
+    exporter의 메인 공개 함수로, 통합문서 생성부터 저장까지 전체 출력
+    과정을 조정한다. 내부 처리는 다음 순서로 실행된다.
+
+    실행 순서:
+        1. 입력 DataFrame과 수식·서식 규칙을 검증하고 고정한다.
+        2. 직원을 기준으로 개인 시트를 만들고 원본 데이터를 기록한다.
+        3. 개인 시트마다 행별 수식, 조건부서식, 요약 수식을 적용한다.
+        4. 전달받은 데이터 또는 개인 시트 정보로 급여대장 기본 행을 만든다.
+        5. 급여대장을 만들고 개인 요약 셀 및 사용자ID 조회 수식을 연결한다.
+        6. 사용자ID를 기준으로 공제 정보를 급여대장 오른쪽에 결합한다.
+        7. 급여대장 조건부서식과 Excel 테이블을 적용하고 파일을 저장한다.
+
+    개인 요약 셀의 실제 주소가 급여대장 수식에 필요하므로, 화면상 첫 번째
+    시트인 급여대장은 개인 시트들을 모두 만든 다음 생성하여 맨 앞으로 옮긴다.
+
     Args:
         df: 저장할 전체 데이터.
         output_path: 생성할 xlsx 파일의 경로.
@@ -149,6 +192,7 @@ def write_dataframe_by_name(
         ValueError: DataFrame이 없거나 비어 있을 때.
         KeyError: 그룹 기준 컬럼이 DataFrame에 없을 때.
     """
+    # 1. 입력값과 재사용할 출력 규칙을 검증하고 준비한다.
     # 빈 데이터로는 시트를 만들 수 없으므로 파일 생성 전에 명확히 실패시킨다.
     if df is None or df.empty:
         raise ValueError("저장할 데이터가 없습니다.")
@@ -196,6 +240,7 @@ def write_dataframe_by_name(
             f"개인별 요약 수식에 없는 항목입니다: {', '.join(unknown_labels)}"
         )
 
+    # 2. 직원별 시트를 만들고 수식, 조건부서식, 요약 영역을 적용한다.
     # 급여대장은 개인 시트의 실제 셀 주소를 참조하므로 개인 시트를 먼저
     # 만든 뒤 마지막에 생성하고 첫 번째 위치로 이동한다.
     overall_title = _make_sheet_title(overall_sheet_name, used_titles)
@@ -261,6 +306,7 @@ def write_dataframe_by_name(
             )
             split_user_ids.append(raw_user_ids[0])
 
+    # 3. 호출자가 급여대장 기본 데이터를 주지 않았다면 개인 시트 정보로 만든다.
     if df_overall is None:
         overall_columns = {sheet_split_col: split_values}
         if needs_user_id:
@@ -291,6 +337,7 @@ def write_dataframe_by_name(
             + ", ".join(overlapping_labels)
         )
 
+    # 4. 급여대장을 만들고 개인 시트의 요약 셀을 연결한다.
     overall_worksheet = workbook.create_sheet(overall_title, 0)
     _write_dataframe(overall_worksheet, overall_data)
 
@@ -314,6 +361,7 @@ def write_dataframe_by_name(
             if rule.number_format is not None:
                 cell.number_format = rule.number_format
 
+    # 5. 사용자ID를 기준으로 개인 시트 값을 조회하는 급여대장 수식을 추가한다.
     if overall_formula_rules:
         if user_id_col not in overall_data.columns:
             raise KeyError(f"급여대장에 {user_id_col} 컬럼이 없습니다.")
@@ -357,7 +405,7 @@ def write_dataframe_by_name(
                 if rule.number_format is not None:
                     cell.number_format = rule.number_format
 
-    # 개인 요약 수식 열이 모두 만들어진 뒤 공제 정보를 가장 오른쪽에 붙인다.
+    # 6. 개인 요약 수식 열이 모두 만들어진 뒤 공제 정보를 가장 오른쪽에 붙인다.
     if df_deductions is not None:
         if deduction_join_col not in overall_data.columns:
             raise KeyError(f"급여대장에 {deduction_join_col} 컬럼이 없습니다.")
@@ -418,6 +466,7 @@ def write_dataframe_by_name(
                     _to_excel_value(deduction_row[deduction_column]),
                 )
 
+    # 7. 완성된 급여대장에 서식과 Excel 테이블을 적용하고 파일로 저장한다.
     apply_column_conditional_formats(
         overall_worksheet,
         overall_conditional_format_rules,
