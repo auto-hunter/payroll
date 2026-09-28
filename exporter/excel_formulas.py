@@ -1,7 +1,17 @@
-"""워크시트에 행별 수식 열과 요약 수식 영역을 추가하는 모듈.
+"""설정으로 전달된 Excel 수식 규칙을 워크시트에 배치하는 모듈.
 
-각 열의 헤더와 수식 생성 규칙을 :class:`FormulaColumn`로 정의하고,
-요약 항목은 :class:`SummaryFormula`로 정의한다.
+이 모듈은 급여 계산식 자체를 고정해서 갖지 않는다. 실제 업무 수식은
+``config.excel_config``에서 규칙 객체로 정의하며, 여기서는 해당 규칙에
+필요한 셀 주소와 데이터 범위를 제공하고 생성된 수식을 검증하여 기록한다.
+
+수식 종류:
+    - ``FormulaColumn``: 개인 시트의 각 데이터 행에 추가할 수식 열
+    - ``SummaryFormula``: 개인 시트 우측에 배치할 합계·요약 수식
+    - ``OverallFormula``: 급여대장에서 개인 시트의 요약값을 조회할 수식 열
+
+Context 클래스는 설정 코드가 열 번호를 직접 계산하지 않아도 되도록
+컬럼명, 현재 행, 데이터 범위 및 개인 요약 셀을 Excel 주소로 변환한다.
+``excel_writer``는 이 모듈의 적용 함수를 호출해 통합문서를 조립한다.
 """
 
 from __future__ import annotations
@@ -177,6 +187,7 @@ def apply_formula_columns(
         ValueError: 열 이름이 비어 있거나 기존/추가 열 이름과 중복될 때,
             또는 생성된 값이 ``=``으로 시작하는 엑셀 수식이 아닐 때.
     """
+    # generator도 검증과 적용 과정에서 안정적으로 재사용할 수 있게 고정한다.
     rules = tuple(formula_columns)
     if not rules:
         return
@@ -240,6 +251,8 @@ def apply_summary_formulas(
         ValueError: 여백/시작 행이 잘못되었거나 제목 또는 수식이 유효하지
             않을 때.
     """
+    # 규칙의 배치 위치를 먼저 확정한 다음 수식을 생성한다. 이를 통해 뒤쪽
+    # 요약 수식도 context.summary_cell()로 다른 요약 셀을 참조할 수 있다.
     rules = tuple(summary_formulas)
     if not rules:
         return {}

@@ -1,3 +1,28 @@
+"""급여 Excel 출력에 사용할 수식과 조건부서식 규칙을 정의한다.
+
+이 파일은 Excel 파일을 직접 생성하지 않는다. 출력할 파일명과 시트 분리
+기준, 개인별 시트의 계산 열, 개인 요약 영역, 급여대장의 조회 열 및
+조건부서식 규칙을 선언한다. 실제 적용과 저장은 ``exporter`` 패키지가
+담당한다.
+
+설정이 적용되는 순서::
+
+    전처리 데이터
+        -> personal_formula_columns       # 개인별 일자 단위 근무시간 계산
+        -> personal_summary_formulas      # 개인별 시간 합계·수당·공제 계산
+        -> overall_formula_columns        # 개인 요약값을 급여대장으로 조회
+        -> personal_conditional_formats   # 이상값과 휴일 행 시각화
+
+규칙 객체의 역할:
+    - ``FormulaColumn``: 개인 시트의 각 데이터 행에 수식 열을 추가한다.
+    - ``SummaryFormula``: 개인 시트 우측에 집계 또는 급여 수식을 배치한다.
+    - ``OverallFormula``: 사용자ID로 개인 요약값을 급여대장에 조회한다.
+    - ``ColumnConditionalFormat``: 컬럼명으로 조건부서식 범위를 지정한다.
+
+수식 문자열은 Excel에서 파일을 열 때 계산된다. 따라서 여기서 사용하는
+컬럼명과 요약 항목명은 전처리 결과 및 다른 규칙의 이름과 일치해야 한다.
+"""
+
 from openpyxl.formatting.rule import CellIsRule, FormulaRule
 from openpyxl.styles import Font, PatternFill
 
@@ -7,11 +32,21 @@ from exporter.excel_formulas import FormulaColumn, SummaryFormula, OverallFormul
 from config.data_config import NAME_COL, TARGET_MONTH
 
 
+# 직원 이름별로 개인 워크시트를 만들고 대상 월을 출력 파일명에 사용한다.
 SHEET_SPLIT_COL = NAME_COL
 OUTPUT_FILE_NAME = f"output_{TARGET_MONTH.replace('-', '')}.xlsx"
 
 
 def payroll_lookup_summary(label, start_row, default=0):
+    """급여대장 PayrollTable의 값을 개인 요약 영역에서 조회하는 규칙을 만든다.
+
+    개인 시트의 첫 번째 이름을 기준으로 급여대장 테이블의 동일한 이름을
+    찾아 ``label`` 컬럼 값을 가져온다. 통상시급과 각종 공제 항목처럼
+    급여대장에 이미 들어 있는 값을 개인 명세에서 재사용할 때 사용한다.
+
+    ``default``는 호출부의 의도를 표현하기 위해 유지된 매개변수이며, 현재
+    생성되는 INDEX/MATCH 수식에는 직접 사용되지 않는다.
+    """
     def build_formula(ctx):
         return (
             f"=INDEX(PayrollTable[{label}], "
@@ -26,6 +61,12 @@ def payroll_lookup_summary(label, start_row, default=0):
         start_row=start_row,
     )
 
+# ---------------------------------------------------------------------------
+# 개인 시트: 일자별 근무시간 계산 열
+#
+# 위에서 아래 순서대로 워크시트 오른쪽에 추가된다. 뒤쪽 규칙은 앞서 생성된
+# 열을 이름으로 참조할 수 있으므로 선언 순서가 계산 의존성을 나타낸다.
+# ---------------------------------------------------------------------------
 personal_formula_columns = [
     FormulaColumn(
         header="총근무시간",
@@ -71,6 +112,7 @@ personal_formula_columns = [
     ),
     FormulaColumn(
         header="야간근무시간",
+        # 실제 근무 구간과 22:00~익일 06:00 구간이 겹치는 시간을 계산한다.
         formula=lambda ctx: (
             f'=IF('
             f'OR({ctx.cell("실출근시간")}="", {ctx.cell("실퇴근시간")}=""),'
@@ -91,6 +133,7 @@ personal_formula_columns = [
     ),
     FormulaColumn(
         header="주휴인정시간",
+        # 일요일 행에서 직전 평일 5일 모두 소정근무가 있으면 8시간을 인정한다.
         formula=lambda ctx: (
             f'=IFERROR(IF(AND('
             f'{ctx.cell("요일")}="일",'
@@ -111,6 +154,13 @@ personal_formula_columns = [
     )
 ]
 
+# ---------------------------------------------------------------------------
+# 개인 시트: 우측 요약 영역
+#
+# 2~12행은 신원·시급·근무시간 집계, 14~21행은 지급 항목, 23~37행은
+# 공제 항목, 39행은 최종 차인지급액이다. start_row는 명세서의 배치를
+# 고정하므로 변경할 때 다른 요약 셀 참조도 함께 확인해야 한다.
+# ---------------------------------------------------------------------------
 personal_summary_formulas = [
     SummaryFormula(
         label="이름",
@@ -251,6 +301,7 @@ personal_summary_formulas = [
         start_row=21,
     ),
     *[
+        # 급여대장에 입력된 공제 정보를 개인 명세의 공제 영역으로 가져온다.
         payroll_lookup_summary(label, start_row)
         for label, start_row in [
             ("고용보험", 23),
@@ -287,6 +338,12 @@ personal_summary_formulas = [
     )
 ]
 
+# ---------------------------------------------------------------------------
+# 급여대장: 개인 요약값 조회 열
+#
+# OverallFormula 자체는 값을 계산하는 모델이 아니라 급여대장 열의 정의다.
+# 여기서는 사용자ID를 키로 개인 시트의 SummaryFormula 결과를 VLOOKUP한다.
+# ---------------------------------------------------------------------------
 overall_formula_columns = [
     OverallFormula(
         header="소정근무",
@@ -420,7 +477,10 @@ overall_formula_columns = [
 ]
 
 
-# 조건부서식
+# ---------------------------------------------------------------------------
+# 개인 시트: 검토가 필요한 행과 휴일 범위를 강조하는 조건부서식
+# ---------------------------------------------------------------------------
+# 이상값은 빨간 글씨, 공휴일·주말 행은 연한 빨간 배경으로 표시한다.
 red_font = Font(
     color="FFFF0000",  # 순수 빨간색 (또는 엑셀 기본 진한 빨강: "FF9C0006")
     bold=True          # (선택) 굵게 표시하고 싶을 경우
@@ -434,6 +494,7 @@ red_fill = PatternFill(
 personal_conditional_formats = [
     ColumnConditionalFormat(
         column="근무일자",
+        # 같은 개인 시트 안에 근무일자가 중복된 경우 표시한다.
         rule=FormulaRule(
             formula=[
                 'COUNTIF('
@@ -446,6 +507,7 @@ personal_conditional_formats = [
     ),
     ColumnConditionalFormat(
         column="총근무시간",
+        # 하루 총근무시간이 비정상적으로 긴 경우 표시한다.
         rule=CellIsRule(
             operator="greaterThan",
             formula=["22"],
@@ -454,6 +516,7 @@ personal_conditional_formats = [
     ),
     ColumnConditionalFormat(
         column="총근무시간",
+        # 출퇴근 역전 등으로 음수 시간이 계산된 경우 표시한다.
         rule=CellIsRule(
             operator="lessThan",
             formula=["-1"],
@@ -462,6 +525,7 @@ personal_conditional_formats = [
     ),
     ColumnConditionalFormat(
         column="실근무시간",
+        # 평일 야간근무가 허용 범위를 넘는 경우 표시한다.
         rule=FormulaRule(
             formula=[
                 'AND('
@@ -476,6 +540,7 @@ personal_conditional_formats = [
     ),
     ColumnConditionalFormat(
         column="실근무시간",
+        # 평일 주간근무가 허용 범위를 넘는 경우 표시한다.
         rule=FormulaRule(
             formula=[
                 'AND('
@@ -490,6 +555,7 @@ personal_conditional_formats = [
     ),
     ColumnConditionalFormat(
         column="주휴인정시간",
+        # 일요일이 존재하지만 주휴시간이 인정되지 않은 주를 검토 대상으로 삼는다.
         rule=FormulaRule(
             formula=[
                 'AND('
@@ -504,6 +570,7 @@ personal_conditional_formats = [
     ColumnConditionalFormat(
         column="근무일자",
         end_column="연차인정시간",
+        # 공휴일과 토·일요일 행 전체를 배경색으로 구분한다.
         rule=FormulaRule(
             formula=[
                 'OR('
