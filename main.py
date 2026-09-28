@@ -16,12 +16,7 @@ from config.excel_config import (
 
 from validator.input_validator import valid_input_file
 
-from preprocessor.data_cleaner import (
-    filter_rows, parse_commute_logs, add_nearest_reference_logs,
-    add_weekday_column, add_holiday_shift_columns,
-    adjust_commute_time_columns, fill_missing_dates,
-    filter_work_records_by_target_month, add_company_column
-)
+from preprocessor.pipeline import preprocess_commute_logs
 
 from exporter.excel_writer import write_dataframe_by_name
 
@@ -35,15 +30,7 @@ if valid_input_file(df_raw)[0]:
 else:
     print('검증실패')
 
-df = add_company_column(df_raw) # 등록사업장(전선 or 소재) 열 추가
-df = filter_rows(df) # 불필요행 삭제 (이름이 없는 행, 모드가 출근/퇴근이 아닌 행 등)
-df_commute = parse_commute_logs(df) # 출퇴근 로그 파싱
-df_commute = filter_work_records_by_target_month(df_commute) # 급여계산에 필요한 대상 월 근무만 유지, 나머지는 제거
-df_commute = add_weekday_column(df_commute) # 근무일자 기준 요일 열 추가
-df_commute = adjust_commute_time_columns(df_commute) # 실출근/퇴근 시간 계산
-df_commute = add_holiday_shift_columns(df_commute) # 휴일, 교대일 열 추가
-df_commute = fill_missing_dates(df_commute) # 결측 근무일 채우기
-df_commute = add_nearest_reference_logs(df_commute, df_raw) # 출입 참고 로그 연결
+df_commute = preprocess_commute_logs(df_raw)
 print('전처리 완료')
 print(df_commute.shape)
 
