@@ -1,12 +1,12 @@
 # 데이터파일 이름
 
-INPUT_FILE_NAME = "caps_rawdata_2608_260901.xls"
+INPUT_FILE_NAME = "caps_rawdata_2609_261001.xls"
 DEDUCT_FILE_NAME = "master_factory_worker.xlsx"
 
 # 1. 월별 설정
-TARGET_MONTH = "2026-08" # 계산 월
-HOLIDAY_DATES = ["2026-08-17"] # 공휴일
-SHIFT_DATES = ["2026-08-09", "2026-08-16", "2026-08-30"] # 교대일
+TARGET_MONTH = "2026-09" # 계산 월
+HOLIDAY_DATES = ["2026-09-24", "2026-09-25", "2026-09-26"] # 공휴일
+SHIFT_DATES = ["2026-09-06", "2026-09-13", "2026-09-27"] # 교대일
 
 
 # 2. 캡스 파일 설정
@@ -57,8 +57,8 @@ COMPANY_COL = "등록사업장"
 
 # 3.2 출입 참고 로그 설정
 # 누락 출퇴근시간 추천에는 일반 출입 기록만 사용한다.
-REFERENCE_LOG_MODES = ("출입",)
-REFERENCE_LOG_TOLERANCE = "1h"
+REFERENCE_LOG_MODES = ("출입", "외출", "복귀")
+REFERENCE_LOG_TOLERANCE = "1.5h"
 REFERENCE_SHIFT_DETECTION_TOLERANCE = "2h"
 REFERENCE_OUTPUT_COLUMNS = {
     START_COL: "출근참고시간",
