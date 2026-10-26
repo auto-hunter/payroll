@@ -499,19 +499,6 @@ red_fill = PatternFill(
 
 personal_conditional_formats = [
     ColumnConditionalFormat(
-        column="근무일자",
-        # 같은 개인 시트 안에 근무일자가 중복된 경우 표시한다.
-        rule=FormulaRule(
-            formula=[
-                'COUNTIF('
-                'INDEX($2:$1000, 0, MATCH("근무일자", $1:$1, 0)),'
-                'INDEX(2:2, 1, MATCH("근무일자", $1:$1, 0))'
-                ') > 1'
-            ],
-            font=red_font
-        )
-    ),
-    ColumnConditionalFormat(
         column="총근무시간",
         # 하루 총근무시간이 비정상적으로 긴 경우 표시한다.
         rule=CellIsRule(
