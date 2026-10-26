@@ -492,8 +492,8 @@ red_font = Font(
     bold=True          # (선택) 굵게 표시하고 싶을 경우
 )
 red_fill = PatternFill(
-    start_color="FFFFC7CE",
-    end_color="FFFFC7CE",
+    start_color="FFFFE3E7",
+    end_color="FFFFE3E7",
     fill_type="solid"
 )
 
