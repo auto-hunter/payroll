@@ -85,28 +85,34 @@ personal_formula_columns = [
     FormulaColumn(
         header="소정근무시간",
         formula=lambda ctx: (
-            f"=IF({ctx.cell('휴일')} = 1, 0, MIN(MAX({ctx.cell('실근무시간')}, 0), 8))"
+            f"=IF(OR({ctx.cell('휴일')} = 1, {ctx.cell('공휴일')} = 1), 0, "
+            f"MIN(MAX({ctx.cell('실근무시간')}, 0), 8))"
         ),
         number_format="0"
     ),
     FormulaColumn(
         header="평일연장근무시간",
         formula=lambda ctx: (
-            f"=IF({ctx.cell('휴일')} = 1, 0, MAX({ctx.cell('실근무시간')} - {ctx.cell('소정근무시간')}, 0))"
+            f'=IF({ctx.cell("소정근무시간")} = "", "", '
+            f"IF(OR({ctx.cell('휴일')} = 1, {ctx.cell('공휴일')} = 1), 0, "
+            f"MAX({ctx.cell('실근무시간')} - 8, 0)))"
         ),
         number_format="0"
     ),
     FormulaColumn(
         header="휴일근무시간",
         formula=lambda ctx: (
-            f"=IF({ctx.cell('휴일')} = 1, MIN(MAX({ctx.cell('실근무시간')}, 0), 8), 0)"
+            f"=IF(OR({ctx.cell('휴일')} = 1, {ctx.cell('공휴일')} = 1), "
+            f"MIN(MAX({ctx.cell('실근무시간')}, 0), 8), 0)"
         ),
         number_format="0"
     ),
     FormulaColumn(
         header="휴일연장근무시간",
         formula=lambda ctx: (
-            f"=IF({ctx.cell('휴일')} = 1, MAX({ctx.cell('실근무시간')} - {ctx.cell('휴일근무시간')}, 0), 0)"
+            f'=IF({ctx.cell("휴일근무시간")} = "", "", '
+            f"IF(OR({ctx.cell('휴일')} = 1, {ctx.cell('공휴일')} = 1), "
+            f"MAX({ctx.cell('실근무시간')} - 8, 0), 0))"
         ),
         number_format="0"
     ),
@@ -531,7 +537,7 @@ personal_conditional_formats = [
                 'AND('
                 'INDEX(2:2,1,MATCH("휴일",$1:$1,0))=0,'
                 'INDEX(2:2,1,MATCH("교대일",$1:$1,0))=0,'
-                'INDEX(2:2,1,MATCH("야간근무시간",$1:$1,0))>=8,'
+                'INDEX(2:2,1,MATCH("야간근무시간",$1:$1,0))>=1,'
                 'INDEX(2:2,1,MATCH("실근무시간",$1:$1,0))>=13'
                 ')'
             ],
