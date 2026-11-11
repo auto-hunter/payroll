@@ -1,12 +1,12 @@
 # 데이터파일 이름
 
-INPUT_FILE_NAME = "caps_rawdata_2609_261001.xls"
+INPUT_FILE_NAME = "caps_rawdata_2610_02.xls"
 DEDUCT_FILE_NAME = "master_factory_worker.xlsx"
 
 # 1. 월별 설정
-TARGET_MONTH = "2026-09" # 계산 월
-HOLIDAY_DATES = ["2026-09-24", "2026-09-25", "2026-09-26"] # 공휴일
-SHIFT_DATES = ["2026-09-06", "2026-09-13", "2026-09-27"] # 교대일
+TARGET_MONTH = "2026-10" # 계산 월
+HOLIDAY_DATES = ["2026-10-03", "2026-10-05", "2026-10-09"] # 공휴일
+SHIFT_DATES = ["2026-10-04", "2026-10-25"] # 교대일
 
 
 # 2. 캡스 파일 설정
@@ -26,11 +26,28 @@ DEDUCTION_COL = [
     '식대비', '소득세', '지방소득세', '지방소득세정산', '기타공제'
 ]
 USER_ID_COL = "사용자ID"
+NATIONALITY_COL = "국적"
+
+# 개인 급여 명세서 하단에 표시할 국적별 안내문이다.
+DEFAULT_PERSONAL_SHEET_COMMENT = "이번 한 달도 동안 고생 많으셨습니다. 감사합니다."
+PERSONAL_SHEET_COMMENTS = {
+    "대한민국": DEFAULT_PERSONAL_SHEET_COMMENT,
+    "중국": DEFAULT_PERSONAL_SHEET_COMMENT,
+    "필리핀": (
+        f"{DEFAULT_PERSONAL_SHEET_COMMENT}\n"
+        "Thank you for all your hard work this month."
+    ),
+    "인도네시아": (
+        f"{DEFAULT_PERSONAL_SHEET_COMMENT}\n"
+        "Terima kasih atas kerja keras Anda selama sebulan ini. Saya sangat menghargainya."
+    ),
+}
 
 # 2.2 "등록사업장" 컬럼 추가 설정
 TAEIL_CABLE = [
     "마빈","나낭","김위","알존","이영련","우마르","노닐","아왈","리오","젤리빈","홍용표",
-    "노베르토","무하마드","렌델","김용범","도니","이라완","아리아","안드린","에르딘","누리스"
+    "노베르토","무하마드","렌델","김용범","도니","이라완","아리아","안드린","에르딘","누리스",
+    "율","이강호"
 ]
 TAEIL_MATERIAL = ["심상복","최영일","지노","하디","다낭","존 폴","와유디","이반","아디"]
 
