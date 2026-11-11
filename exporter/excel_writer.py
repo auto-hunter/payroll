@@ -35,10 +35,11 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Mapping
 
 import pandas as pd
 from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils.cell import absolute_coordinate, get_column_letter
 from openpyxl.workbook.properties import CalcProperties
 from openpyxl.worksheet.table import Table
@@ -134,6 +135,37 @@ def _quote_sheet_title(title: str) -> str:
     return title.replace("'", "''")
 
 
+def _write_personal_comment(
+    worksheet,
+    comment: str,
+    *,
+    data_last_row: int,
+    data_end_column: int,
+) -> None:
+    """개인 시트의 데이터 아래에 요약 영역과 겹치지 않게 안내문을 표시한다."""
+    text = str(comment).strip()
+    if not text:
+        return
+
+    comment_row = data_last_row + 3
+    end_column = max(data_end_column, 1)
+    worksheet.merge_cells(
+        start_row=comment_row,
+        start_column=1,
+        end_row=comment_row,
+        end_column=end_column,
+    )
+    cell = worksheet.cell(comment_row, 1, text)
+    cell.alignment = Alignment(wrap_text=True, vertical="top")
+    cell.font = Font(color="FF404040", italic=True)
+    cell.fill = PatternFill(
+        start_color="FFF2F2F2",
+        end_color="FFF2F2F2",
+        fill_type="solid",
+    )
+    worksheet.row_dimensions[comment_row].height = 36
+
+
 def write_dataframe_by_name(
     df: pd.DataFrame,
     output_path: str | Path,
@@ -150,6 +182,7 @@ def write_dataframe_by_name(
     company_col: str = COMPANY_COL,
     df_deductions: pd.DataFrame | None = None,
     deduction_join_col: str = "사용자ID",
+    personal_comments: Mapping[str, str] | None = None,
 ) -> Path:
     """DataFrame을 이름별 시트로 나누어 새 엑셀 파일에 저장한다.
 
@@ -184,6 +217,7 @@ def write_dataframe_by_name(
         company_col: 개인 시트에서 급여대장으로 가져올 등록사업장 컬럼.
         df_deductions: 급여대장 수식 열 뒤에 추가할 공제 정보.
         deduction_join_col: 급여대장과 공제 정보를 연결할 컬럼.
+        personal_comments: 사용자ID를 키로 개인 시트 하단에 표시할 안내문.
 
     Returns:
         저장을 마친 파일의 ``Path`` 객체.
@@ -222,7 +256,15 @@ def write_dataframe_by_name(
     personal_summary_rules = tuple(personal_summary_formulas)
     overall_formula_rules = tuple(overall_formula_columns)
     overall_conditional_format_rules = tuple(overall_conditional_formats)
-    needs_user_id = bool(overall_formula_rules) or df_deductions is not None
+    needs_user_id = (
+        bool(overall_formula_rules)
+        or df_deductions is not None
+        or personal_comments is not None
+    )
+    personal_comment_lookup = {
+        _lookup_key(user_id): str(comment)
+        for user_id, comment in (personal_comments or {}).items()
+    }
     overall_labels = tuple(str(label).strip() for label in overall_summary_labels)
     if any(not label for label in overall_labels):
         raise ValueError("급여대장 요약 항목명은 비어 있을 수 없습니다.")
@@ -260,6 +302,8 @@ def write_dataframe_by_name(
 
         # 데이터 오른쪽에 호출자가 정의한 수식 열을 동일하게 추가한다.
         apply_formula_columns(worksheet, personal_formula_rules)
+        personal_data_last_row = worksheet.max_row
+        personal_data_end_column = worksheet.max_column
         # 요약 영역이 max_row를 늘리기 전에 실제 데이터 행에만 적용한다.
         apply_column_conditional_formats(
             worksheet,
@@ -305,6 +349,15 @@ def write_dataframe_by_name(
                 summary_cells,
             )
             split_user_ids.append(raw_user_ids[0])
+
+            personal_comment = personal_comment_lookup.get(user_id_key)
+            if personal_comment is not None:
+                _write_personal_comment(
+                    worksheet,
+                    personal_comment,
+                    data_last_row=personal_data_last_row,
+                    data_end_column=personal_data_end_column,
+                )
 
     # 3. 호출자가 급여대장 기본 데이터를 주지 않았다면 개인 시트 정보로 만든다.
     if df_overall is None:
